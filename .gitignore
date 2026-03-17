@@ -1,0 +1,18 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Data (We don't push the actual PDFs or the local DB)
+data/papers/*
+data/faiss_index/*
+data/exports/*
+!data/papers/.gitkeep
+!data/faiss_index/.gitkeep
+!data/exports/.gitkeep
+
+# Environment
+.env
+
+# Reflex
+.web/

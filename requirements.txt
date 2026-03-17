@@ -1,0 +1,16 @@
+# Web Frameworks
+fastapi
+uvicorn
+reflex
+python-multipart
+
+# RAG & Vector Search (Flexible versions for your Python version)
+llama-index
+llama-index-vector-stores-faiss
+llama-index-embeddings-huggingface
+llama-index-llms-ollama
+faiss-cpu
+pypdf
+
+# Environment & Utils
+python-dotenv
