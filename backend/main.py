@@ -1,44 +1,65 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from app.services.pdf_processor import processor
-from app.services.vector_service import vector_service # New import
-import uvicorn
+from pydantic import BaseModel
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.vectorstores import FAISS
+from langchain_ollama import OllamaEmbeddings
+import ollama
+import os
+import shutil
 
-app = FastAPI(title="AI Research Assistant")
+app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# This is your "Global Memory"
+vectorstore = None 
+
+class ChatRequest(BaseModel):
+    query: str
+
+@app.get("/")
+async def root():
+    return {"status": "online", "message": "Research Assistant API is ready"}
 
 @app.post("/upload")
-async def upload_document(file: UploadFile = File(...)):
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDFs allowed")
-
+async def upload_pdf(file: UploadFile = File(...)):
+    global vectorstore
     try:
-        # 1. Save and Load PDF
-        path = await processor.save_file(file)
-        documents = processor.load_pdf(path)
+        # 1. Save the file temporarily
+        file_path = f"temp_{file.filename}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 2. Load and Split the PDF
+        loader = PyPDFLoader(file_path)
+        pages = loader.load_and_split()
+
+        # 3. Create the Vector Store (The "Memory")
+        embeddings = OllamaEmbeddings(model="tinyllama")
+        vectorstore = FAISS.from_documents(pages, embeddings)
+
+        # 4. Clean up the temp file
+        os.remove(file_path)
         
-        # 2. Index the document (Create Embeddings and store in FAISS)
-        # This makes the paper "searchable" by the AI
-        index = vector_service.create_index(documents)
-        
-        return {
-            "status": "success",
-            "filename": file.filename,
-            "chunks_indexed": "Index updated successfully"
-        }
+        return {"message": f"Successfully indexed {file.filename}"}
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Upload Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
-def health():
-    return {"status": "ready"}
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    global vectorstore
+    try:
+        if vectorstore is None:
+            return {"answer": "Please upload a PDF paper first!"}
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        # 1. Search the PDF for context
+        docs = vectorstore.similarity_search(request.query, k=3)
+        context = "\n".join([doc.page_content for doc in docs])
+
+        # 2. Ask the AI (TinyLlama)
+        prompt = f"Using this context: {context}\n\nQuestion: {request.query}"
+        response = ollama.generate(model="tinyllama", prompt=prompt)
+
+        return {"answer": response['response']}
+    except Exception as e:
+        print(f"Chat Error: {str(e)}")
+        return {"answer": f"I had an error: {str(e)}"}
