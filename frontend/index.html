@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Research Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #080808;
+      color: #e0e0e0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 270px;
+      min-width: 270px;
+      background: #111;
+      border-right: 1px solid #222;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5em;
+      gap: 1em;
+    }
+    #sidebar h1 { font-size: 1.3em; color: #fff; }
+    #sidebar h1 span { color: #3b82f6; }
+
+    /* Status pill */
+    #status-pill {
+      font-size: 0.72em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #1a1a1a;
+      color: #666;
+      border: 1px solid #2a2a2a;
+      display: inline-block;
+      width: fit-content;
+      transition: all 0.3s;
+    }
+    #status-pill.online  { background: #052e16; color: #4ade80; border-color: #166534; }
+    #status-pill.paper   { background: #1e3a5f; color: #60a5fa; border-color: #1d4ed8; }
+
+    /* Upload area */
+    #drop-zone {
+      border: 2px dashed #333;
+      border-radius: 10px;
+      padding: 1.5em 1em;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      color: #555;
+      font-size: 0.85em;
+      line-height: 1.6;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: #3b82f6;
+      background: #0d1f3c;
+      color: #93c5fd;
+    }
+    #file-input { display: none; }
+
+    #upload-btn {
+      width: 100%;
+      padding: 0.6em;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9em;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    #upload-btn:hover:not(:disabled) { background: #1d4ed8; }
+    #upload-btn:disabled { background: #1e293b; color: #475569; cursor: default; }
+
+    #upload-msg {
+      font-size: 0.78em;
+      min-height: 1.2em;
+      color: #4ade80;
+      text-align: center;
+    }
+    #upload-msg.error { color: #f87171; }
+
+    hr { border: none; border-top: 1px solid #222; }
+
+    #library-label { font-size: 0.75em; color: #555; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+    #paper-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .paper-badge {
+      background: #1e3a5f;
+      color: #93c5fd;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.78em;
+      word-break: break-all;
+    }
+
+    /* ── MAIN CHAT ── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #080808;
+      overflow: hidden;
+    }
+
+    #chat-window {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5em 2em;
+      display: flex;
+      flex-direction: column;
+      gap: 1em;
+      scroll-behavior: smooth;
+    }
+
+    /* Welcome screen */
+    #welcome {
+      margin: auto;
+      text-align: center;
+      color: #333;
+    }
+    #welcome h2 { font-size: 2em; margin-bottom: 0.4em; }
+    #welcome p  { font-size: 0.95em; line-height: 1.7; max-width: 380px; }
+
+    /* Message bubbles */
+    .msg-row {
+      display: flex;
+      width: 100%;
+    }
+    .msg-row.user  { justify-content: flex-end; }
+    .msg-row.bot   { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 70%;
+      padding: 0.75em 1.1em;
+      border-radius: 16px;
+      font-size: 0.93em;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg-row.user .bubble  { background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+    .msg-row.bot  .bubble  { background: #1c1c1c; color: #d1d5db; border-bottom-left-radius: 4px; border: 1px solid #2a2a2a; }
+
+    /* Typing indicator */
+    #typing {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 0.5em 0;
+      color: #555;
+      font-size: 0.82em;
+    }
+    #typing.visible { display: flex; }
+    .dot {
+      width: 7px; height: 7px;
+      background: #3b82f6;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+      40%            { transform: scale(1);   opacity: 1;   }
+    }
+
+    /* Input bar */
+    #input-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 1em 1.5em;
+      background: #111;
+      border-top: 1px solid #1e1e1e;
+    }
+    #question-input {
+      flex: 1;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 0.65em 1em;
+      color: #e0e0e0;
+      font-size: 0.95em;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #question-input:focus { border-color: #3b82f6; }
+    #question-input::placeholder { color: #444; }
+
+    #send-btn {
+      background: #2563eb;
+      border: none;
+      border-radius: 10px;
+      padding: 0.65em 1.1em;
+      cursor: pointer;
+      color: #fff;
+      font-size: 1em;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #send-btn:hover:not(:disabled) { background: #1d4ed8; }
+    #send-btn:disabled { background: #1e293b; color: #334155; cursor: default; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside id="sidebar">
+  <h1>🤖 <span>AI</span> Research</h1>
+  <div id="status-pill">⬤ Checking backend…</div>
+
+  <div
+    id="drop-zone"
+    onclick="document.getElementById('file-input').click()"
+    ondragover="onDragOver(event)"
+    ondragleave="onDragLeave(event)"
+    ondrop="onDrop(event)"
+  >
+    📄 Drag PDF here<br/>or click to select
+  </div>
+  <input type="file" id="file-input" accept=".pdf" onchange="onFileChosen(event)" />
+
+  <button id="upload-btn" disabled onclick="uploadPDF()">Upload & Index Paper</button>
+  <div id="upload-msg"></div>
+
+  <hr/>
+  <div id="library-label">Library</div>
+  <div id="paper-list"></div>
+</aside>
+
+<!-- ── MAIN CHAT ── -->
+<main id="main">
+  <div id="chat-window">
+    <div id="welcome">
+      <h2>👋 Hello!</h2>
+      <p>Upload a research PDF from the sidebar, then ask me anything about it.</p>
+    </div>
+  </div>
+
+  <div id="typing">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <span>AI is reading…</span>
+  </div>
+
+  <div id="input-bar">
+    <input
+      type="text"
+      id="question-input"
+      placeholder="Ask about your research paper…"
+      onkeydown="if(event.key==='Enter') sendMessage()"
+    />
+    <button id="send-btn" onclick="sendMessage()" title="Send">
+      ➤
+    </button>
+  </div>
+</main>
+
+<script>
+  const API = "http://127.0.0.1:8888";
+  let selectedFile = null;
+  let paperLoaded = false;
+  let busy = false;
+
+  // ── STATUS POLLING ──
+  async function checkStatus() {
+    try {
+      const r = await fetch(`${API}/status`, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        const data = await r.json();
+        paperLoaded = data.paper_loaded;
+        const pill = document.getElementById("status-pill");
+        if (paperLoaded) {
+          pill.textContent = "⬤ Backend online · Paper loaded";
+          pill.className = "paper";
+        } else {
+          pill.textContent = "⬤ Backend online";
+          pill.className = "online";
+        }
+        setSendEnabled(paperLoaded && !busy);
+      }
+    } catch {
+      const pill = document.getElementById("status-pill");
+      pill.textContent = "⬤ Backend offline";
+      pill.className = "";
+      setSendEnabled(false);
+    }
+  }
+
+  setInterval(checkStatus, 4000);
+  checkStatus();
+
+  // ── FILE SELECTION ──
+  function onDragOver(e) { e.preventDefault(); document.getElementById("drop-zone").classList.add("drag-over"); }
+  function onDragLeave()  { document.getElementById("drop-zone").classList.remove("drag-over"); }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById("drop-zone").classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === "application/pdf") setFile(f);
+    else showUploadMsg("Only PDF files are supported.", true);
+  }
+  function onFileChosen(e) { if (e.target.files[0]) setFile(e.target.files[0]); }
+
+  function setFile(f) {
+    selectedFile = f;
+    document.getElementById("drop-zone").textContent = `📄 ${f.name}`;
+    document.getElementById("upload-btn").disabled = false;
+    showUploadMsg("");
+  }
+
+  // ── UPLOAD ──
+  async function uploadPDF() {
+    if (!selectedFile) return;
+    const btn = document.getElementById("upload-btn");
+    btn.disabled = true;
+    btn.textContent = "Indexing…";
+    showUploadMsg("Processing PDF, please wait…");
+
+    const form = new FormData();
+    form.append("file", selectedFile);
+
+    try {
+      const r = await fetch(`${API}/upload`, { method: "POST", body: form });
+      const data = await r.json();
+
+      if (r.ok) {
+        showUploadMsg(data.message || "Indexed successfully!");
+        addToBadge(selectedFile.name);
+        // Hide welcome screen
+        document.getElementById("welcome").style.display = "none";
+        await checkStatus();
+      } else {
+        showUploadMsg(data.detail || "Upload failed.", true);
+      }
+    } catch (e) {
+      showUploadMsg("Connection error. Is the backend running?", true);
+    }
+
+    btn.textContent = "Upload & Index Paper";
+    btn.disabled = false;
+  }
+
+  function showUploadMsg(msg, isError = false) {
+    const el = document.getElementById("upload-msg");
+    el.textContent = msg;
+    el.className = isError ? "error" : "";
+  }
+
+  function addToBadge(name) {
+    const list = document.getElementById("paper-list");
+    // Avoid duplicates
+    for (const b of list.children) if (b.dataset.name === name) return;
+    const badge = document.createElement("div");
+    badge.className = "paper-badge";
+    badge.dataset.name = name;
+    badge.textContent = `📄 ${name}`;
+    list.appendChild(badge);
+  }
+
+  // ── CHAT ──
+  function setSendEnabled(yes) {
+    document.getElementById("send-btn").disabled = !yes;
+    document.getElementById("question-input").disabled = !yes;
+  }
+
+  function addBubble(role, text) {
+    const win = document.getElementById("chat-window");
+
+    // Remove welcome message once first bubble added
+    const welcome = document.getElementById("welcome");
+    if (welcome) welcome.remove();
+
+    const row = document.createElement("div");
+    row.className = `msg-row ${role}`;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    win.appendChild(row);
+    win.scrollTop = win.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById("question-input");
+    const q = input.value.trim();
+    if (!q || busy) return;
+
+    busy = true;
+    setSendEnabled(false);
+    input.value = "";
+    addBubble("user", q);
+
+    // Show typing
+    const typingEl = document.getElementById("typing");
+    typingEl.classList.add("visible");
+    document.getElementById("chat-window").scrollTop = 99999;
+
+    try {
+      const r = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+      });
+      const data = await r.json();
+      typingEl.classList.remove("visible");
+      addBubble("bot", data.answer || "No response.");
+    } catch (e) {
+      typingEl.classList.remove("visible");
+      addBubble("bot", "Connection error. Is the backend running on port 8888?");
+    }
+
+    busy = false;
+    await checkStatus();
+    setSendEnabled(paperLoaded && !busy);
+    input.focus();
+  }
+</script>
+</body>
+</html>
