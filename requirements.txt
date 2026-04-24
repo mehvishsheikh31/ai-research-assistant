@@ -1,16 +1,21 @@
-# Web Frameworks
+# Web Framework
 fastapi
-uvicorn
-reflex
+uvicorn[standard]
 python-multipart
 
-# RAG & Vector Search (Flexible versions for your Python version)
-llama-index
-llama-index-vector-stores-faiss
-llama-index-embeddings-huggingface
-llama-index-llms-ollama
-faiss-cpu
+# PDF Loading & RAG
+langchain
+langchain-community
+langchain-huggingface
 pypdf
 
-# Environment & Utils
+# Embeddings (local, fast, no API key)
+sentence-transformers
+faiss-cpu
+
+# Ollama Python client
+ollama
+
+# Utilities
 python-dotenv
+httpx
