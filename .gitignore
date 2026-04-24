@@ -1,18 +1,18 @@
-# Python
-venv/
-__pycache__/
-*.pyc
-
-# Data (We don't push the actual PDFs or the local DB)
-data/papers/*
-data/faiss_index/*
-data/exports/*
-!data/papers/.gitkeep
-!data/faiss_index/.gitkeep
-!data/exports/.gitkeep
-
-# Environment
+# Environment variables
 .env
 
-# Reflex
-.web/
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# FAISS / data
+data/
+
+# Temp files
+temp_*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
