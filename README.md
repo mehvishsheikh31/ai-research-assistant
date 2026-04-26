@@ -1,94 +1,130 @@
-
----
-
 # AI Research Assistant 🤖📄
 
-A locally hosted **Retrieval-Augmented Generation (RAG)** system built to help researchers and students interact with their PDF papers using private AI. No data leaves your machine.
-
-## 🚀 Features (Current Version)
-* **Local PDF Indexing:** Uses `PyPDFLoader` and `FAISS` to turn research papers into searchable vector data.
-* **Private AI Chat:** Powered by `Ollama` (TinyLlama) for fast, local inference on your laptop.
-* **Modern UI:** A dark-mode dashboard built with `Reflex` for seamless interaction.
-* **FastAPI Logic:** A high-performance backend managing the bridge between PDF data and the AI model.
+A locally-hosted RAG (Retrieval-Augmented Generation) system.
+Upload any research PDF and chat with it privately.
+**No data leaves your machine.**
 
 ---
 
-## 🏗️ Project Architecture
-```text
+## 📁 Project Structure
+
+```
 ai-research-assistant/
-├── backend/            # FastAPI Server (Logic & AI Bridge)
-│   └── main.py         # Main API routes (Upload & Chat)
-├── frontend/           # Reflex UI (The Dashboard)
-│   └── research_app/   # Frontend source code
-├── data/               # Vector storage (FAISS) and Paper uploads
-└── requirements.txt    # Project dependencies
+│
+├── backend/
+│   ├── __init__.py
+│   └── main.py
+│
+├── frontend/
+│   └── index.html
+│
+├── .env
+├── .gitignore
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
 ## 🛠️ Tech Stack
-* **Frontend:** [Reflex](https://reflex.dev/) (Python-based Web Framework)
-* **Backend:** [FastAPI](https://fastapi.tiangolo.com/)
-* **AI Engine:** [Ollama](https://ollama.com/) (Model: `tinyllama`)
-* **Orchestration:** [LangChain](https://www.langchain.com/)
-* **Vector Database:** [FAISS](https://github.com/facebookresearch/faiss)
+
+* **Backend:** FastAPI + Uvicorn
+* **AI Model:** Ollama (TinyLlama) — runs fully locally
+* **Embeddings:** sentence-transformers/all-MiniLM-L6-v2 (HuggingFace)
+* **Vector Search:** FAISS
+* **PDF Loading:** LangChain + PyPDF
+* **Frontend:** Plain HTML + CSS + JavaScript (no framework)
 
 ---
 
-## 🚦 Getting Started
+## ⚙️ Setup
 
-### 1. Prerequisites
+### 1️⃣ Prerequisites
+
 * Python 3.10+
-* [Ollama](https://ollama.com/) installed and running (`ollama pull tinyllama`)
+* [Ollama](https://ollama.com/) installed
 
-### 2. Installation
+---
+
+### 2️⃣ Install dependencies
+
 ```bash
-# Clone the repo
-git clone https://github.com/mehvishsheikh31/ai-research-assistant.git
-cd ai-research-assistant
-
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 ```
 
-### 3. Running the System
-You need **three** terminals open:
+---
 
-* **Terminal 1 (Ollama):** `ollama serve`
-* **Terminal 2 (Backend):** ```bash
-    cd backend
-    python -m uvicorn main:app --host 127.0.0.1 --port 8888
-    ```
-* **Terminal 3 (Frontend):** ```bash
-    cd frontend/research_app
-    reflex run
-    ```
+### 3️⃣ Pull the AI model (one-time)
+
+```bash
+ollama pull tinyllama
+```
 
 ---
 
-## 📝 Usage
-1. Open your browser to `http://localhost:3000`.
-2. Upload a research paper (PDF format) via the sidebar.
-3. Wait for the "Paper Indexed" alert.
-4. Ask questions about the paper in the chat box!
+### 4️⃣ Configure `.env`
+
+```dotenv
+OLLAMA_BASE_URL=http://localhost:11434
+MODEL_NAME=tinyllama
+EMBED_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+PAPER_DIR=.
+VECTOR_STORE_PATH=.
+```
 
 ---
 
-## 🛠️ Troubleshooting (Device Guard Policy)
-If running on a restricted Windows machine, always start the backend using the `python -m` bypass:
-`python -m uvicorn main:app --host 127.0.0.1 --port 8888`
+## 🚀 Running the App
+
+### Terminal 1 — Ollama
+
+*(Skip if already running)*
+
+```bash
+ollama serve
+```
 
 ---
 
-## 📅 Roadmap
-* [ ] Add support for multiple PDF comparison.
-* [ ] Implement persistent storage for FAISS indexes.
-* [ ] Enhance UI with "Thinking" animations and chat history.
+### Terminal 2 — Backend
+
+```bash
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8888 --reload
+```
 
 ---
+
+### Open Frontend
+
+Open:
+
+```
+frontend/index.html
+```
+
+No extra server needed.
+
+---
+
+## 🧠 Usage
+
+1. Wait for **"Backend online"** status (green)
+2. Click the upload area and select a PDF
+3. Click **Upload & Index Paper** and wait for confirmation
+4. Type your question and press Enter
+5. Wait ~1–2 minutes for TinyLlama to respond
+   *(CPU is slow — this is normal)*
+
+---
+
+## 📝 Notes
+
+* Paper is stored in memory only — re-upload after restarting the backend
+* First run downloads the embedding model (~90MB), cached after that
+* Ollama only needs to be started once
+
+  * If port `11434` is already in use, it's already running
 
 ---
