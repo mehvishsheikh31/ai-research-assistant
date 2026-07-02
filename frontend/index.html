@@ -246,6 +246,37 @@
       align-items: center;
       gap: 6px;
       line-height: 1.4;
+      cursor: pointer;
+      transition: all 0.15s;
+      justify-content: space-between;
+    }
+    .paper-badge:hover { border-color: var(--accent); }
+    .paper-badge.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent) inset;
+      background: #24124a;
+    }
+    .paper-badge .p-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .paper-badge .p-del {
+      opacity: 0.5;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .paper-badge .p-del:hover { opacity: 1; color: var(--red); }
+
+    .sources {
+      margin-top: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .source-chip {
+      font-size: 0.65em;
+      color: var(--text3);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 9px;
     }
 
     /* ── MAIN ── */
@@ -569,6 +600,7 @@
   const API = "http://127.0.0.1:8888";
   let selectedFile = null;
   let paperLoaded = false;
+  let activePaperId = null;
   let busy = false;
 
   async function checkStatus() {
@@ -577,6 +609,9 @@
       if (r.ok) {
         const data = await r.json();
         paperLoaded = data.paper_loaded;
+        activePaperId = data.active_paper_id;
+        renderPaperList(data.papers || []);
+
         const pill = document.getElementById("status-pill");
         const txt  = document.getElementById("status-text");
         if (paperLoaded) {
@@ -633,7 +668,6 @@
       const data = await r.json();
       if (r.ok) {
         showUploadMsg(data.message || "Indexed successfully!");
-        addToBadge(selectedFile.name);
         document.getElementById("welcome").style.display = "none";
         await checkStatus();
       } else {
@@ -653,14 +687,42 @@
     el.className = isError ? "error" : "";
   }
 
-  function addToBadge(name) {
+  function renderPaperList(paperList) {
     const list = document.getElementById("paper-list");
-    for (const b of list.children) if (b.dataset.name === name) return;
-    const badge = document.createElement("div");
-    badge.className = "paper-badge";
-    badge.dataset.name = name;
-    badge.innerHTML = `📄 <span>${name}</span>`;
-    list.appendChild(badge);
+    list.innerHTML = "";
+    for (const p of paperList) {
+      const badge = document.createElement("div");
+      badge.className = "paper-badge" + (p.id === activePaperId ? " active" : "");
+      badge.onclick = () => selectPaper(p.id);
+      badge.innerHTML = `
+        <span class="p-name">📄 ${p.name}</span>
+        <span class="p-del" title="Remove">✕</span>
+      `;
+      badge.querySelector(".p-del").onclick = (e) => {
+        e.stopPropagation();
+        deletePaper(p.id);
+      };
+      list.appendChild(badge);
+    }
+  }
+
+  async function selectPaper(id) {
+    if (id === activePaperId || busy) return;
+    try {
+      await fetch(`${API}/select?paper_id=${encodeURIComponent(id)}`, { method: "POST" });
+      await checkStatus();
+    } catch {
+      showUploadMsg("Connection error. Is the backend running?", true);
+    }
+  }
+
+  async function deletePaper(id) {
+    try {
+      await fetch(`${API}/paper/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await checkStatus();
+    } catch {
+      showUploadMsg("Connection error. Is the backend running?", true);
+    }
   }
 
   function setSendEnabled(yes) {
@@ -668,7 +730,7 @@
     document.getElementById("question-input").disabled = !yes;
   }
 
-  function addBubble(role, text) {
+  function addBubble(role, text, sources) {
     const win = document.getElementById("chat-window");
     const welcome = document.getElementById("welcome");
     if (welcome) welcome.remove();
@@ -689,6 +751,23 @@
 
     col.appendChild(label);
     col.appendChild(row);
+
+    if (sources && sources.length) {
+      const chips = document.createElement("div");
+      chips.className = "sources";
+      const seen = new Set();
+      for (const s of sources) {
+        const key = `${s.paper}-${s.page}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const chip = document.createElement("span");
+        chip.className = "source-chip";
+        chip.textContent = `${s.paper} · ${s.page}`;
+        chips.appendChild(chip);
+      }
+      col.appendChild(chips);
+    }
+
     win.appendChild(col);
     win.scrollTop = win.scrollHeight;
   }
@@ -711,11 +790,11 @@
       const r = await fetch(`${API}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q }),
+        body: JSON.stringify({ query: q, paper_id: activePaperId }),
       });
       const data = await r.json();
       typingEl.classList.remove("visible");
-      addBubble("bot", data.answer || "No response.");
+      addBubble("bot", data.answer || "No response.", data.sources);
     } catch {
       typingEl.classList.remove("visible");
       addBubble("bot", "Connection error. Is the backend running on port 8888?");
