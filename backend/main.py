@@ -16,6 +16,7 @@ import os
 import re
 import shutil
 import tempfile
+import uuid
 import asyncio
 from functools import partial
 from pathlib import Path
@@ -167,6 +168,10 @@ async def upload_pdf(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only .pdf files are supported.")
 
     paper_id = _slugify(Path(file.filename).stem)
+    if paper_id in papers:
+        # Same filename uploaded before (or by another user) — avoid
+        # silently overwriting that paper's saved index.
+        paper_id = f"{paper_id}_{uuid.uuid4().hex[:6]}"
     suffix = ".pdf"
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix)
 

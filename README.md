@@ -121,10 +121,25 @@ No extra server needed.
 
 ## 📝 Notes
 
-* Paper is stored in memory only — re-upload after restarting the backend
-* First run downloads the embedding model (~90MB), cached after that
-* Ollama only needs to be started once
+* Uploaded papers are indexed with FAISS and **persisted to disk** under
+  `VECTOR_STORE_PATH/vector_store/<paper_id>/`, then reloaded automatically
+  on the next backend startup — you do **not** need to re-upload after a
+  restart.
+* Each paper gets its own FAISS index, so multiple PDFs can be uploaded and
+  switched between via `/select`.
+* First run downloads the embedding model (~90MB), cached after that.
+* Ollama only needs to be started once.
 
-  * If port `11434` is already in use, it's already running
+  * If port `11434` is already in use, it's already running.
+
+## ⚠️ Known Limitations
+
+* Chunking is page-based (via `PyPDFLoader.load_and_split()`), not a tuned
+  token-size/overlap split — retrieval granularity could be improved.
+* No re-ranking step after retrieval; the top-4 similarity matches are used
+  as-is.
+* Chat is stateless per request — no multi-turn conversation memory yet.
+* Scanned/image-only PDFs with no extractable text are not supported (no
+  OCR).
 
 ---
