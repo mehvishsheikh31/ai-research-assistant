@@ -3,7 +3,7 @@
 A locally-hosted RAG (Retrieval-Augmented Generation) system.
 Upload any research PDF and chat with it privately.
 **No data leaves your machine.**
-
+![App Screenshot](screenshots/image.png)
 ---
 
 ## 📁 Project Structure
