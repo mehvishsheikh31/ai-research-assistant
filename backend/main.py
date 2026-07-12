@@ -246,16 +246,29 @@ async def chat(request: ChatRequest):
 
         context = "\n\n".join(context_parts)
 
-        prompt = f"""You are a helpful research assistant. Answer the question based ONLY on the provided context from the research paper. Be concise and clear. If the context does not contain the answer, say so.
+        prompt = f"""You are a strict document Q&A assistant. You must follow these rules exactly:
+1. Answer using ONLY the facts written in the "Context" section below.
+2. Do NOT describe, summarize, or invent any other paper, article, or document.
+3. Do NOT add information that is not explicitly stated in the Context.
+4. If the Context does not contain the answer, reply exactly: "This is not covered in the document."
+5. Keep the answer short — 1 to 3 sentences.
 
-Context from paper:
+Context:
 {context}
 
 Question: {request.query}
 
-Answer:"""
+Remember: use only the Context above. Answer:"""
 
         answer = await _run_blocking(_generate, prompt)
+
+        # Basic guardrail: if the model drifts into naming an unrelated paper
+        # title (a common TinyLlama failure mode), flag it rather than
+        # silently returning a fabricated answer.
+        if "comprehensive review" in answer.lower() and "comprehensive review" not in context.lower():
+            answer = ("The model's response appears to have drifted from the "
+                      "retrieved context. Please try rephrasing the question. "
+                      f"(Raw model output for debugging: {answer[:200]})")
 
         return {
             "answer": answer,
