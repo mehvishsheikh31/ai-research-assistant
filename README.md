@@ -5,7 +5,7 @@ Upload any research PDF and chat with it privately.
 **No data leaves your machine.**
 ![App Screenshot](screenshots/image.png)
 ---
-
+![App Screenshot](screenshots/imagee.png)
 ## 📁 Project Structure
 
 ```
